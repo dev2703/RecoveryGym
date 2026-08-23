@@ -10,10 +10,12 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 pip install -e .
 
-# API
+##API
+```
 uvicorn services.api.main:app --reload --port 8000
-
-# UI
+```
+## UI
+```
 cd apps/web && npm install && npm run dev
 ```
 
