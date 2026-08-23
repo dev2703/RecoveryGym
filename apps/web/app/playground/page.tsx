@@ -109,10 +109,21 @@ export default function PlaygroundPage() {
 
             <EventTimeline events={events} />
 
+            {result.counterfactual_error && (
+              <div className="bg-gym-panel rounded-lg p-4 border border-red-900/50">
+                <h2 className="font-semibold mb-1 text-red-400">Reactor Counterfactual</h2>
+                <p className="text-xs text-gray-400">{result.counterfactual_error}</p>
+              </div>
+            )}
+
             {result.counterfactual && (
               <div className="bg-gym-panel rounded-lg p-4 border border-gray-800">
-                <h2 className="font-semibold mb-1 text-gym-accent">WAM Counterfactual</h2>
-                <p className="text-xs text-gray-400">Provider: {result.counterfactual.provider || "wam"}</p>
+                <h2 className="font-semibold mb-1 text-gym-accent">LingBot Counterfactual</h2>
+                <p className="text-xs text-gray-400">
+                  Model: {result.counterfactual.model || "reactor/lingbot-world-2"}
+                  {result.counterfactual.frame_count != null && ` · ${result.counterfactual.frame_count} frames`}
+                  {result.counterfactual.chunk_complete && " · chunk complete"}
+                </p>
               </div>
             )}
           </>

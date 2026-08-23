@@ -71,6 +71,7 @@ def health() -> dict[str, str]:
         "status": "ok",
         "service": "recoverygym",
         "wam_mode": "mock" if settings.use_mock_wam else "reactor",
+        "reactor_model": settings.reactor_model_name,
         "artifacts_dir": settings.artifacts_dir,
     }
 

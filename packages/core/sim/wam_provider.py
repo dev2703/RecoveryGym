@@ -45,15 +45,15 @@ class WAMProvider(WorldModelProvider):
         api_key: str | None = None,
         use_mock: bool | None = None,
         model_name: str | None = None,
-        counterfactual_command: str | None = None,
+        chunk_wait_sec: float | None = None,
         settings: Settings | None = None,
     ):
         cfg = settings or get_settings()
         self.api_key = api_key if api_key is not None else cfg.reactor_api_key
         self.use_mock = cfg.use_mock_wam if use_mock is None else use_mock
         self.model_name = model_name or cfg.reactor_model_name
-        self.counterfactual_command = (
-            counterfactual_command or cfg.reactor_counterfactual_command
+        self.chunk_wait_sec = (
+            chunk_wait_sec if chunk_wait_sec is not None else cfg.reactor_chunk_wait_sec
         )
         self._mock = MockWAMProvider()
         self._cache: dict[str, dict[str, Any]] = {}
@@ -67,7 +67,7 @@ class WAMProvider(WorldModelProvider):
             self._client = ReactorClient(
                 api_key=self.api_key,
                 model_name=self.model_name,
-                counterfactual_command=self.counterfactual_command,
+                chunk_wait_sec=self.chunk_wait_sec,
             )
         return self._client
 

@@ -10,6 +10,7 @@ pytest-asyncio>=0.23
 
 # Real providers (optional locally; required on Modal GPU image)
 reactor-sdk>=0.1.0
+Pillow>=10.0
 huggingface_hub>=0.23
 datasets>=2.19
 

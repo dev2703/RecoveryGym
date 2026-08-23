@@ -41,7 +41,7 @@ class Settings:
     artifacts_dir: str
     use_mock_wam: bool
     reactor_model_name: str
-    reactor_counterfactual_command: str
+    reactor_chunk_wait_sec: float
     smolvla_model_id: str
     smolvla_checkpoint: str | None
     smolvla_allow_fallback: bool
@@ -62,10 +62,10 @@ class Settings:
             hf_token=os.environ.get("HF_TOKEN"),
             artifacts_dir=os.environ.get("RECOVERYGYM_ARTIFACTS_DIR", "./artifacts"),
             use_mock_wam=_bool("USE_MOCK_WAM", default=not has_reactor),
-            reactor_model_name=os.environ.get("REACTOR_MODEL_NAME", "reactor/helios"),
-            reactor_counterfactual_command=os.environ.get(
-                "REACTOR_COUNTERFACTUAL_COMMAND", "counterfactual_rollout"
+            reactor_model_name=os.environ.get(
+                "REACTOR_MODEL_NAME", "reactor/lingbot-world-2"
             ),
+            reactor_chunk_wait_sec=float(os.environ.get("REACTOR_CHUNK_WAIT_SEC", "3.0")),
             smolvla_model_id=os.environ.get("SMOLVLA_MODEL_ID", "lerobot/smolvla_base"),
             smolvla_checkpoint=os.environ.get("SMOLVLA_CHECKPOINT"),
             smolvla_allow_fallback=_bool("SMOLVLA_ALLOW_FALLBACK", default=not has_hf),
