@@ -11,3 +11,7 @@ build/
 .next/
 node_modules/
 .DS_Store
+.agents/skills
+.agents/skills-lock.json
+plan.md
+skills-lock.json

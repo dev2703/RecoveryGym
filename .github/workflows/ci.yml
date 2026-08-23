@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main, frontend, backend]
+  pull_request:
+    branches: [main, frontend, backend]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e .
+
+      - name: Run tests
+        env:
+          USE_MOCK_WAM: "true"
+          SMOLVLA_ALLOW_FALLBACK: "true"
+          USE_MODAL_JOBS: "false"
+        run: pytest tests/ -v
+
+  web-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install and build frontend
+        env:
+          NEXT_PUBLIC_API_URL: https://example.modal.run
+        run: |
+          npm ci
+          npm run build

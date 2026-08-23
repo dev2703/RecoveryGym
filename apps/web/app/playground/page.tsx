@@ -60,7 +60,7 @@ export default function PlaygroundPage() {
           <label className="block text-sm text-gray-400">Policy</label>
           <select value={policyId} onChange={(e) => setPolicyId(e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2">
             <option value="nominal">Nominal (scripted)</option>
-            <option value="smolvla">SmolVLA (stub)</option>
+            <option value="smolvla">SmolVLA</option>
           </select>
 
           <label className="block text-sm text-gray-400">Failure type</label>

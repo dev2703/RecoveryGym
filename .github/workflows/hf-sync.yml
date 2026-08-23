@@ -1,0 +1,58 @@
+name: HF Dataset Sync
+
+on:
+  workflow_dispatch:
+    inputs:
+      benchmark_id:
+        description: Benchmark ID to export and push
+        required: true
+      run_training:
+        description: Run SmolVLA LoRA after upload
+        type: boolean
+        default: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -e .
+
+      - name: Export dataset and optional training
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_DATASET_REPO: ${{ secrets.HF_DATASET_REPO }}
+          HF_MODEL_REPO: ${{ secrets.HF_MODEL_REPO }}
+          RECOVERYGYM_ARTIFACTS_DIR: ./artifacts
+          USE_MOCK_WAM: "true"
+          SMOLVLA_ALLOW_FALLBACK: "true"
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from core.storage.artifacts import ArtifactStore
+          from training.export.lerobot import push_to_hub
+          from training.finetune import finetune_smolvla
+          import os
+
+          benchmark_id = "${{ github.event.inputs.benchmark_id }}"
+          store = ArtifactStore("./artifacts")
+          path = store.export_dataset_jsonl(benchmark_id)
+          upload = push_to_hub(path)
+          print("Uploaded:", upload)
+          if "${{ github.event.inputs.run_training }}" == "true":
+              manifest = finetune_smolvla(
+                  str(path),
+                  push_dataset=False,
+                  run_training=True,
+                  output_dir=f"./checkpoints/{benchmark_id}",
+              )
+              print("Training:", manifest)
+          PY

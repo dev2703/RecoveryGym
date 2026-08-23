@@ -7,6 +7,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from core.config import get_settings
 from core.evaluation.suite import POLICY_FACTORIES, run_comparison
 from core.scenario.engine import ScenarioEngine
 from core.sim.wam_provider import WAMProvider
@@ -21,28 +22,33 @@ from schemas.benchmark import (
     RunRequest,
 )
 from schemas.task import TaskConfig
-from services.api.jobs.benchmark_worker import run_benchmark_job
+from services.api.jobs.dispatch import dispatch_benchmark_job
 from services.api.jobs.store import JobStore
+from training.export.lerobot import push_to_hub
 from training.finetune import DEFAULT_MODEL_ID, finetune_smolvla
 
 COMPARE_KNOWN_CAP = 20
 COMPARE_OOD_CAP = 12
 
-app = FastAPI(title="RecoveryGym API", version="0.1.0")
+settings = get_settings()
+app = FastAPI(title="RecoveryGym API", version="0.2.0")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins or ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-store = ArtifactStore()
+store = ArtifactStore(settings.artifacts_dir)
 engine = ScenarioEngine()
-wam = WAMProvider(use_mock=True)
+wam = WAMProvider(settings=settings)
 jobs = JobStore(store)
 
-POLICIES: dict[str, Any] = {"nominal": NominalPolicy(), "smolvla": SmolVLAProvider()}
+POLICIES: dict[str, Any] = {
+    "nominal": NominalPolicy(),
+    "smolvla": SmolVLAProvider(),
+}
 
 
 class PolicyRegisterRequest(BaseModel):
@@ -51,9 +57,22 @@ class PolicyRegisterRequest(BaseModel):
     endpoint: str | None = None
 
 
+class TrainingRequest(BaseModel):
+    benchmark_id: str
+    model_id: str = DEFAULT_MODEL_ID
+    steps: int = 500
+    push_dataset: bool = True
+    run_training: bool = False
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "service": "recoverygym"}
+    return {
+        "status": "ok",
+        "service": "recoverygym",
+        "wam_mode": "mock" if settings.use_mock_wam else "reactor",
+        "artifacts_dir": settings.artifacts_dir,
+    }
 
 
 @app.post("/v1/runs")
@@ -99,10 +118,15 @@ def create_benchmark(request: BenchmarkRequest) -> dict[str, Any]:
             status=BenchmarkStatus.QUEUED,
             profile=request.profile,
             episodes_total=request.episodes or PROFILE_EPISODES[request.profile],
-            version_info={"generator": "recoverygym@0.1.0", "policy": request.policy_id},
+            version_info={"generator": "recoverygym@0.2.0", "policy": request.policy_id},
         )
     )
-    run_benchmark_job(benchmark_id=benchmark_id, request=request, store=store, jobs=jobs)
+    dispatch_benchmark_job(
+        benchmark_id=benchmark_id,
+        request=request,
+        store=store,
+        jobs=jobs,
+    )
     return {"benchmark_id": benchmark_id, "status": result.status.value}
 
 
@@ -125,7 +149,7 @@ def register_policy(request: PolicyRegisterRequest) -> dict[str, Any]:
 
 
 @app.post("/v1/datasets/{benchmark_id}/generate")
-def generate_dataset(benchmark_id: str) -> dict[str, Any]:
+def generate_dataset(benchmark_id: str, push_to_hf: bool = False) -> dict[str, Any]:
     try:
         path = store.export_dataset_jsonl(benchmark_id)
     except FileNotFoundError as error:
@@ -133,35 +157,70 @@ def generate_dataset(benchmark_id: str) -> dict[str, Any]:
 
     from core.dataset.corrective import read_jsonl, summarize
 
+    hf_info = None
+    if push_to_hf:
+        try:
+            hf_info = push_to_hub(path)
+        except Exception as error:
+            raise HTTPException(status_code=500, detail=str(error)) from error
+
     return {
         "benchmark_id": benchmark_id,
         "dataset_path": str(path),
         "format": "jsonl",
         "summary": summarize(read_jsonl(path)),
+        "hf_upload": hf_info,
     }
 
 
 @app.post("/v1/training")
-def start_training(benchmark_id: str, model_id: str = DEFAULT_MODEL_ID) -> dict[str, Any]:
+def start_training(body: TrainingRequest) -> dict[str, Any]:
     training_id = f"train_{uuid.uuid4().hex[:8]}"
     try:
-        dataset_path = store.export_dataset_jsonl(benchmark_id)
+        dataset_path = store.export_dataset_jsonl(body.benchmark_id)
     except FileNotFoundError:
-        dataset_path = store.dataset_path(benchmark_id)
+        dataset_path = store.dataset_path(body.benchmark_id)
+
+    if settings.use_modal_jobs:
+        try:
+            import modal
+
+            fn = modal.Function.lookup("recoverygym", "finetune_job")
+            handle = fn.spawn(
+                str(dataset_path),
+                body.model_id,
+                str(store.base_dir / training_id),
+                body.steps,
+                body.push_dataset,
+                body.run_training,
+            )
+            payload = {
+                "training_id": training_id,
+                "status": "queued_modal",
+                "model_id": body.model_id,
+                "benchmark_id": body.benchmark_id,
+                "modal_call_id": handle.object_id,
+            }
+            store.save_benchmark(f"train_{training_id}", payload)
+            return payload
+        except Exception:
+            pass
 
     pipeline = finetune_smolvla(
         dataset_path=str(dataset_path),
-        model_id=model_id,
+        model_id=body.model_id,
         output_dir=str(store.base_dir / training_id),
+        steps=body.steps,
+        push_dataset=body.push_dataset,
+        run_training=body.run_training,
     )
     payload = {
         "training_id": training_id,
-        "status": "completed_local_eval",
-        "model_id": model_id,
-        "benchmark_id": benchmark_id,
+        "status": "completed" if pipeline.get("trained") else "pipeline_ready",
+        "model_id": body.model_id,
+        "benchmark_id": body.benchmark_id,
         "pipeline": pipeline,
         "comparison": run_comparison(known_episodes=10, ood_episodes=6, seed_base=42),
-        "message": "Measured local comparison. GPU LoRA pending Modal credentials.",
     }
     store.save_benchmark(f"train_{training_id}", payload)
     return payload
@@ -174,9 +233,9 @@ def get_training(training_id: str) -> dict[str, Any]:
         return data
     return {
         "training_id": training_id,
-        "status": "pipeline_ready",
-        "checkpoint": None,
-        "message": "Configure Modal GPU + HF_TOKEN to run LoRA fine-tune",
+        "status": "not_found",
+        "checkpoint": settings.smolvla_checkpoint,
+        "message": "Training job not found",
     }
 
 

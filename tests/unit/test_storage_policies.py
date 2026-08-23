@@ -90,7 +90,7 @@ def test_smolvla_normalizes_actions():
         "pick and place",
     )
     assert {"dx", "dy", "toggle_gripper"} <= set(action)
-    assert action["source"] == "smolvla_zeroshot"
+    assert action["source"] in ("smolvla_zeroshot", "smolvla_fallback")
 
 
 def test_smolvla_recovery_is_a_recovery_adapter():

@@ -32,8 +32,20 @@ export async function generateDataset(benchmarkId: string) {
   return res.json();
 }
 
-export async function startTraining(benchmarkId: string) {
-  const res = await fetch(`${API_URL}/v1/training?benchmark_id=${benchmarkId}`, { method: "POST" });
+export async function startTraining(
+  benchmarkId: string,
+  options?: { runTraining?: boolean; pushDataset?: boolean; steps?: number }
+) {
+  const res = await fetch(`${API_URL}/v1/training`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      benchmark_id: benchmarkId,
+      run_training: options?.runTraining ?? false,
+      push_dataset: options?.pushDataset ?? true,
+      steps: options?.steps ?? 500,
+    }),
+  });
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
