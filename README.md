@@ -6,11 +6,13 @@ Stress-test a robot policy: inject failures, detect them, recover, score, and ex
 
 ## Setup
 
-python -m venv .venv && source .venv/bin/activate
+python -m venv .venv && source .venv/bin/activate 
+
 pip install -r requirements.txt
+
 pip install -e .
 
-##API
+## API
 ```
 uvicorn services.api.main:app --reload --port 8000
 ```
