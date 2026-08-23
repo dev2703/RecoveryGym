@@ -87,21 +87,26 @@ def create_run(request: RunRequest) -> dict[str, Any]:
     )
 
     counterfactual = None
+    counterfactual_error = None
     if artifact.failure_event and artifact.nominal_trajectory:
-        counterfactual = wam.run_counterfactual_episode(
-            {
-                "steps": [s.model_dump() for s in artifact.nominal_trajectory.steps],
-                "seed": request.seed,
-            },
-            artifact.failure_event.model_dump(),
-        )
-        artifact.counterfactual_available = True
+        try:
+            counterfactual = wam.run_counterfactual_episode(
+                {
+                    "steps": [s.model_dump() for s in artifact.nominal_trajectory.steps],
+                    "seed": request.seed,
+                },
+                artifact.failure_event.model_dump(),
+            )
+            artifact.counterfactual_available = True
+        except Exception as error:
+            counterfactual_error = str(error)
 
     steps = artifact.perturbed_trajectory.steps if artifact.perturbed_trajectory else []
     return {
         "run_id": artifact.episode_id,
         "artifact": artifact.model_dump(),
         "counterfactual": counterfactual,
+        "counterfactual_error": counterfactual_error,
         "events": [e.model_dump() for e in artifact.events],
         "recovery_plan": artifact.expert_recovery.get("primitives", []),
         "recovery_score": artifact.recovery_score,
@@ -185,7 +190,7 @@ def start_training(body: TrainingRequest) -> dict[str, Any]:
         try:
             import modal
 
-            fn = modal.Function.lookup("recoverygym", "finetune_job")
+            fn = modal.Function.from_name("recoverygym", "finetune_job")
             handle = fn.spawn(
                 str(dataset_path),
                 body.model_id,

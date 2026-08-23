@@ -8,7 +8,18 @@ try:
     import modal
 
     APP_NAME = "recoverygym"
-    ROOT = Path(__file__).resolve().parents[2]
+
+    def _repo_root() -> Path:
+        here = Path(__file__).resolve()
+        if here.parent.name == "api":
+            candidate = here.parents[2]
+            if (candidate / "pyproject.toml").exists():
+                return candidate
+        if (here.parent / "pyproject.toml").exists():
+            return here.parent
+        return Path("/root")
+
+    ROOT = _repo_root()
 
     app = modal.App(APP_NAME)
 

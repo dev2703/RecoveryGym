@@ -22,7 +22,7 @@ def dispatch_benchmark_job(
         try:
             import modal
 
-            fn = modal.Function.lookup("recoverygym", "run_benchmark_job")
+            fn = modal.Function.from_name("recoverygym", "run_benchmark_job")
             fn.spawn(
                 benchmark_id,
                 request.model_dump(mode="json"),
