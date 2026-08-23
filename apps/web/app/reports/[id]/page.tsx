@@ -4,14 +4,20 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { getBenchmark, generateDataset, startTraining, runComparison } from "@/lib/api";
+import type {
+  BenchmarkResult,
+  ComparisonResult,
+  DatasetInfo,
+  TrainingInfo,
+} from "@/lib/types";
 
 export default function ReportPage() {
   const params = useParams();
   const id = params.id as string;
-  const [data, setData] = useState<any>(null);
-  const [datasetInfo, setDatasetInfo] = useState<any>(null);
-  const [trainingInfo, setTrainingInfo] = useState<any>(null);
-  const [comparison, setComparison] = useState<any>(null);
+  const [data, setData] = useState<BenchmarkResult | null>(null);
+  const [datasetInfo, setDatasetInfo] = useState<DatasetInfo | null>(null);
+  const [trainingInfo, setTrainingInfo] = useState<TrainingInfo | null>(null);
+  const [comparison, setComparison] = useState<ComparisonResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -87,7 +93,7 @@ export default function ReportPage() {
     smolvla_finetuned: "SmolVLA fine-tuned",
   };
 
-  const compareChart = (comparison?.summary_table || []).map((row: any) => ({
+  const compareChart = (comparison?.summary_table || []).map((row) => ({
     name: methodLabels[row.method] || row.method,
     Known: row.known_success_pct,
     OOD: row.ood_success_pct,
@@ -157,7 +163,7 @@ export default function ReportPage() {
 
       <div className="flex flex-wrap gap-3">
         <button onClick={handleDownload} className="bg-gym-accent text-black px-4 py-2 rounded font-medium">
-          Download Corrective Dataset
+          Export & Push to Hugging Face
         </button>
         <button
           onClick={handleFineTune}
@@ -176,8 +182,22 @@ export default function ReportPage() {
       </div>
 
       {datasetInfo && (
-        <div className="text-sm text-gym-success">
-          Dataset exported: {datasetInfo.dataset_path} ({datasetInfo.format})
+        <div className="text-sm text-gym-success space-y-1">
+          <p>Dataset exported: {datasetInfo.dataset_path} ({datasetInfo.format})</p>
+          {datasetInfo.summary && (
+            <p className="text-gray-400">
+              {datasetInfo.summary.count} episodes · {datasetInfo.summary.with_action_chunks} with action chunks
+            </p>
+          )}
+          {datasetInfo.hf_upload && (
+            <p>
+              Hugging Face:{" "}
+              <a href={datasetInfo.hf_upload.url} className="underline text-gym-accent" target="_blank" rel="noreferrer">
+                {datasetInfo.hf_upload.repo_id}
+              </a>{" "}
+              ({datasetInfo.hf_upload.rows} rows)
+            </p>
+          )}
         </div>
       )}
       {trainingInfo && (

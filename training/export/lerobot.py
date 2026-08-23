@@ -72,15 +72,13 @@ def push_to_hub(
 
     try:
         from datasets import Dataset
-        from huggingface_hub import HfApi
     except ImportError as error:
         raise RuntimeError("Install datasets and huggingface_hub for HF export") from error
 
     dataset = Dataset.from_list(rows)
     dataset.push_to_hub(repo, token=token, private=private)
-    api = HfApi(token=token)
     return {
         "repo_id": repo,
         "rows": len(rows),
-        "url": api.repo_url(repo_id=repo, repo_type="dataset"),
+        "url": f"https://huggingface.co/datasets/{repo}",
     }

@@ -26,8 +26,10 @@ export async function getBenchmark(id: string) {
   return res.json();
 }
 
-export async function generateDataset(benchmarkId: string) {
-  const res = await fetch(`${API_URL}/v1/datasets/${benchmarkId}/generate`, { method: "POST" });
+export async function generateDataset(benchmarkId: string, pushToHub = true) {
+  const res = await fetch(`${API_URL}/v1/datasets/${benchmarkId}/generate?push_to_hf=${pushToHub}`, {
+    method: "POST",
+  });
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
