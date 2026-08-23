@@ -1,5 +1,11 @@
 export const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+export async function getHealth() {
+  const res = await fetch(`${API_URL}/health`);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
 export async function createRun(body: Record<string, unknown>) {
   const res = await fetch(`${API_URL}/v1/runs`, {
     method: "POST",

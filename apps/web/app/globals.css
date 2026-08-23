@@ -2,6 +2,110 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  @apply bg-gym-bg text-gray-100 min-h-screen;
+@layer base {
+  :root {
+    --gym-bg: #18181b;
+    --gym-accent: #fef08a;
+    --gym-accent-hover: #fde047;
+  }
+
+  body {
+    @apply bg-gym-bg text-white min-h-screen antialiased;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(254, 240, 138, 0.08), transparent),
+      radial-gradient(ellipse 60% 40% at 100% 0%, rgba(167, 139, 250, 0.06), transparent),
+      radial-gradient(ellipse 50% 30% at 0% 100%, rgba(34, 211, 238, 0.05), transparent);
+  }
+
+  ::selection {
+    @apply bg-gym-accent text-black;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-gym-accent px-6 py-3
+      text-sm font-semibold text-black transition-all duration-200
+      hover:bg-gym-accentHover hover:shadow-glow hover:scale-[1.02]
+      active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-gym-panel px-6 py-3
+      text-sm font-semibold text-white border border-gym-border transition-all duration-200
+      hover:bg-gym-panelHover hover:border-gym-muted/50 hover:scale-[1.02]
+      active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .btn-outline {
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-gym-accent/60
+      px-5 py-2.5 text-sm font-semibold text-gym-accent transition-all duration-200
+      hover:bg-gym-accent/10 hover:border-gym-accent hover:scale-[1.02]
+      active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .card {
+    @apply rounded-2xl border border-gym-border bg-gym-panel/80 backdrop-blur-sm
+      shadow-card transition-all duration-300 hover:border-gym-muted/40 hover:shadow-glow;
+  }
+
+  .card-static {
+    @apply rounded-2xl border border-gym-border bg-gym-panel/80 backdrop-blur-sm shadow-card;
+  }
+
+  .input-field {
+    @apply w-full rounded-xl border border-gym-border bg-gym-surface px-4 py-2.5 text-sm text-white
+      placeholder:text-gym-muted transition-all duration-200
+      focus:border-gym-accent/50 focus:outline-none focus:ring-2 focus:ring-gym-accent/20;
+  }
+
+  .select-field {
+    @apply input-field appearance-none cursor-pointer;
+  }
+
+  .badge {
+    @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-medium;
+  }
+
+  .badge-accent {
+    @apply badge bg-gym-accent/15 text-gym-accent border border-gym-accent/30;
+  }
+
+  .badge-muted {
+    @apply badge bg-gym-surface text-gym-muted border border-gym-border;
+  }
+
+  .section-label {
+    @apply text-xs font-semibold uppercase tracking-widest text-gym-muted;
+  }
+
+  .page-title {
+    @apply text-3xl font-bold tracking-tight text-white md:text-4xl;
+  }
+
+  .stat-value {
+    @apply text-3xl font-bold tracking-tight text-gym-accent;
+  }
+
+  .squircle {
+    @apply flex items-center justify-center rounded-2xl font-bold text-white shadow-lg
+      transition-transform duration-300 hover:scale-110 hover:-rotate-3;
+  }
+
+  .nav-pill {
+    @apply rounded-full px-4 py-2 text-sm font-medium text-gym-muted transition-all duration-200
+      hover:bg-gym-panel hover:text-white;
+  }
+
+  .nav-pill-active {
+    @apply nav-pill bg-gym-panel text-white border border-gym-border shadow-sm;
+  }
+
+  .gradient-text {
+    @apply bg-gradient-to-r from-gym-accent via-white to-gym-purple bg-clip-text text-transparent;
+  }
+
+  .timeline-dot {
+    @apply h-2 w-2 rounded-full bg-gym-accent shrink-0 mt-1.5;
+  }
 }

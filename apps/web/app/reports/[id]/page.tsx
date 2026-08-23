@@ -11,6 +11,14 @@ import type {
   TrainingInfo,
 } from "@/lib/types";
 
+const CHART_THEME = {
+  grid: "#3f3f46",
+  text: "#a1a1aa",
+  tooltip: { background: "#27272a", border: "1px solid #3f3f46", borderRadius: "12px" },
+  accent: "#FEF08A",
+  purple: "#a78bfa",
+};
+
 export default function ReportPage() {
   const params = useParams();
   const id = params.id as string;
@@ -41,19 +49,48 @@ export default function ReportPage() {
     };
   }, [id]);
 
+  useEffect(() => {
+    if (!trainingInfo?.training_id || trainingInfo.status !== "queued_modal") return;
+    let active = true;
+    async function pollTraining() {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/v1/training/${trainingInfo!.training_id}`);
+        if (!res.ok) return;
+        const info = await res.json();
+        if (!active) return;
+        setTrainingInfo(info);
+        if (info.comparison) setComparison(info.comparison);
+        if (info.status === "queued_modal") setTimeout(pollTraining, 5000);
+      } catch {
+        /* keep last known status */
+      }
+    }
+    pollTraining();
+    return () => {
+      active = false;
+    };
+  }, [trainingInfo?.training_id, trainingInfo?.status]);
+
   async function handleDownload() {
+    setBusy(true);
     try {
       const info = await generateDataset(id);
       setDatasetInfo(info);
     } catch (e: any) {
       setError(e.message);
+    } finally {
+      setBusy(false);
     }
   }
 
   async function handleFineTune() {
     setBusy(true);
     try {
-      const info = await startTraining(id);
+      const info = await startTraining(id, {
+        runTraining: true,
+        pushDataset: true,
+        steps: 500,
+      });
       setTrainingInfo(info);
       if (info.comparison) setComparison(info.comparison);
     } catch (e: any) {
@@ -75,8 +112,22 @@ export default function ReportPage() {
     }
   }
 
-  if (error && !data) return <main className="p-8 text-gym-danger">{error}</main>;
-  if (!data) return <main className="p-8 text-gray-400">Loading report...</main>;
+  if (error && !data) {
+    return (
+      <main className="max-w-5xl mx-auto px-6 py-16 text-center">
+        <p className="text-gym-danger rounded-xl bg-red-500/10 border border-red-500/20 px-6 py-4 inline-block">{error}</p>
+      </main>
+    );
+  }
+
+  if (!data) {
+    return (
+      <main className="max-w-5xl mx-auto px-6 py-16 flex flex-col items-center gap-4">
+        <div className="h-10 w-10 rounded-full border-2 border-gym-accent border-t-transparent animate-spin" />
+        <p className="text-gym-muted">Loading report…</p>
+      </main>
+    );
+  }
 
   const metrics = data.metrics || {};
   const baseline = data.baseline_metrics || {};
@@ -99,100 +150,102 @@ export default function ReportPage() {
     OOD: row.ood_success_pct,
   }));
 
+  const isRunning = data.status === "running" || data.status === "queued";
+
+  const statCards = [
+    { label: "Nominal Success", val: metrics.nominal_success_rate, color: "from-emerald-500/10" },
+    { label: "Stress Success", val: metrics.final_success_rate, color: "from-gym-accent/10" },
+    { label: "Recovery Success", val: metrics.recovery_success_rate, color: "from-violet-500/10" },
+    { label: "OOD Recovery", val: metrics.ood_recovery_success, color: "from-cyan-500/10" },
+  ];
+
   return (
-    <main className="max-w-5xl mx-auto px-6 py-8 space-y-6">
-      <div className="flex justify-between items-start">
+    <main className="max-w-5xl mx-auto px-6 py-10 space-y-8 animate-fade-up">
+      <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Benchmark Report</h1>
-          <p className="text-gray-400 text-sm">
-            {id} · {data.status}
-          </p>
+          <p className="section-label mb-2">Benchmark Report</p>
+          <h1 className="page-title">Results</h1>
+          <p className="text-gym-muted text-sm mt-1 font-mono">{id}</p>
         </div>
-        <span className="text-3xl font-bold text-gym-accent">{(metrics.robustness_score || 0).toFixed(1)}</span>
+        <div className="flex items-center gap-3">
+          <span className={`badge ${isRunning ? "badge-accent animate-pulse" : "badge-muted"}`}>
+            {data.status}
+          </span>
+          <span className="stat-value">{(metrics.robustness_score || 0).toFixed(1)}</span>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          ["Nominal Success", metrics.nominal_success_rate],
-          ["Stress Success", metrics.final_success_rate],
-          ["Recovery Success", metrics.recovery_success_rate],
-          ["OOD Recovery", metrics.ood_recovery_success],
-        ].map(([label, val]) => (
-          <div key={label as string} className="bg-gym-panel rounded-lg p-4 border border-gray-800">
-            <p className="text-xs text-gray-400">{label}</p>
-            <p className="text-xl font-semibold">{(((val as number) || 0) * 100).toFixed(0)}%</p>
+        {statCards.map(({ label, val, color }) => (
+          <div key={label} className="card-static p-5 relative overflow-hidden group">
+            <div className={`absolute inset-0 bg-gradient-to-br ${color} to-transparent opacity-50 group-hover:opacity-100 transition-opacity`} />
+            <p className="text-xs text-gym-muted relative">{label}</p>
+            <p className="text-2xl font-bold relative mt-1">{(((val as number) || 0) * 100).toFixed(0)}%</p>
           </div>
         ))}
       </div>
 
-      <div className="bg-gym-panel rounded-lg p-4 border border-gray-800 h-64">
+      <div className="card-static p-6 h-72">
         <h2 className="font-semibold mb-4">Baseline vs Recovery</h2>
-        <ResponsiveContainer width="100%" height="80%">
+        <ResponsiveContainer width="100%" height="85%">
           <BarChart data={chartData}>
-            <XAxis dataKey="name" stroke="#9ca3af" />
-            <YAxis stroke="#9ca3af" unit="%" />
-            <Tooltip contentStyle={{ background: "#111827", border: "1px solid #374151" }} />
-            <Bar dataKey="value" fill="#22d3ee" />
+            <XAxis dataKey="name" stroke={CHART_THEME.text} tick={{ fontSize: 12 }} />
+            <YAxis stroke={CHART_THEME.text} unit="%" />
+            <Tooltip contentStyle={CHART_THEME.tooltip} />
+            <Bar dataKey="value" fill={CHART_THEME.accent} radius={[8, 8, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
 
       {compareChart.length > 0 && (
-        <div className="bg-gym-panel rounded-lg p-4 border border-gray-800 h-72">
-          <h2 className="font-semibold mb-2">Method Comparison (measured)</h2>
-          <p className="text-xs text-gray-500 mb-3">Known vs held-out OOD — real episode rates only</p>
-          <ResponsiveContainer width="100%" height="75%">
+        <div className="card-static p-6 h-80">
+          <h2 className="font-semibold mb-1">Method Comparison</h2>
+          <p className="text-xs text-gym-muted mb-4">Known vs held-out OOD — real episode rates only</p>
+          <ResponsiveContainer width="100%" height="80%">
             <BarChart data={compareChart}>
-              <XAxis dataKey="name" stroke="#9ca3af" tick={{ fontSize: 11 }} />
-              <YAxis stroke="#9ca3af" unit="%" />
-              <Tooltip contentStyle={{ background: "#111827", border: "1px solid #374151" }} />
+              <XAxis dataKey="name" stroke={CHART_THEME.text} tick={{ fontSize: 11 }} />
+              <YAxis stroke={CHART_THEME.text} unit="%" />
+              <Tooltip contentStyle={CHART_THEME.tooltip} />
               <Legend />
-              <Bar dataKey="Known" fill="#22d3ee" />
-              <Bar dataKey="OOD" fill="#a78bfa" />
+              <Bar dataKey="Known" fill={CHART_THEME.accent} radius={[6, 6, 0, 0]} />
+              <Bar dataKey="OOD" fill={CHART_THEME.purple} radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
       )}
 
-      <div className="bg-gym-panel rounded-lg p-4 border border-gray-800 text-sm text-gray-400">
+      <div className="card-static p-5 text-sm text-gym-muted">
         <p>OOD split: severity 0.6–0.8 held out · composite failures held out · split by scenario</p>
         <p className="mt-1">
-          Episodes: {data.episodes_completed}/{data.episodes_total}
+          Episodes: <span className="text-white font-medium">{data.episodes_completed}/{data.episodes_total}</span>
         </p>
       </div>
 
       <div className="flex flex-wrap gap-3">
-        <button onClick={handleDownload} className="bg-gym-accent text-black px-4 py-2 rounded font-medium">
-          Export & Push to Hugging Face
+        <button onClick={handleDownload} disabled={busy} className="btn-primary !py-2.5 !px-5">
+          {busy ? "Exporting…" : "Export & Push to Hugging Face"}
         </button>
-        <button
-          onClick={handleFineTune}
-          disabled={busy}
-          className="border border-gray-600 px-4 py-2 rounded hover:border-gym-accent disabled:opacity-50"
-        >
-          {busy ? "Running..." : "Fine-tune + Compare"}
+        <button onClick={handleFineTune} disabled={busy} className="btn-secondary !py-2.5 !px-5">
+          {busy ? "Running…" : "Fine-tune + Compare"}
         </button>
-        <button
-          onClick={handleCompare}
-          disabled={busy}
-          className="border border-gym-accent text-gym-accent px-4 py-2 rounded disabled:opacity-50"
-        >
+        <button onClick={handleCompare} disabled={busy} className="btn-outline !py-2.5 !px-5">
           Run Method Comparison
         </button>
       </div>
 
       {datasetInfo && (
-        <div className="text-sm text-gym-success space-y-1">
-          <p>Dataset exported: {datasetInfo.dataset_path} ({datasetInfo.format})</p>
+        <div className="card-static p-5 text-sm space-y-1 border-gym-success/30">
+          <p className="text-gym-success font-medium">Dataset exported</p>
+          <p className="text-gym-muted">{datasetInfo.dataset_path} ({datasetInfo.format})</p>
           {datasetInfo.summary && (
-            <p className="text-gray-400">
+            <p className="text-gym-muted">
               {datasetInfo.summary.count} episodes · {datasetInfo.summary.with_action_chunks} with action chunks
             </p>
           )}
           {datasetInfo.hf_upload && (
             <p>
               Hugging Face:{" "}
-              <a href={datasetInfo.hf_upload.url} className="underline text-gym-accent" target="_blank" rel="noreferrer">
+              <a href={datasetInfo.hf_upload.url} className="text-gym-accent hover:underline" target="_blank" rel="noreferrer">
                 {datasetInfo.hf_upload.repo_id}
               </a>{" "}
               ({datasetInfo.hf_upload.rows} rows)
@@ -201,11 +254,19 @@ export default function ReportPage() {
         </div>
       )}
       {trainingInfo && (
-        <div className="text-sm text-gray-400">
-          Training: {trainingInfo.training_id} — {trainingInfo.message}
+        <div className="card-static p-5 text-sm text-gym-muted space-y-1">
+          <p>
+            Training: <span className="text-gym-accent font-medium">{trainingInfo.training_id}</span> — {trainingInfo.status}
+          </p>
+          {trainingInfo.status === "queued_modal" && (
+            <p className="text-xs">GPU job running on Modal (LoRA fine-tune, ~10–30 min). Poll every 5s…</p>
+          )}
+          {trainingInfo.message && <p>{trainingInfo.message}</p>}
         </div>
       )}
-      {error && <p className="text-gym-danger text-sm">{error}</p>}
+      {error && (
+        <p className="text-gym-danger text-sm rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-2">{error}</p>
+      )}
     </main>
   );
 }

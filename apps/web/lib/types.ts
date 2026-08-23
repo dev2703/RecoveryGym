@@ -10,15 +10,34 @@ export interface SimState {
 }
 
 export interface RunEvent {
+  t: number;
   event: string;
-  step?: number;
-  detail?: string;
+  failure_type?: string;
+  confidence?: number;
+  policy?: string;
+  success?: boolean;
+}
+
+export interface CounterfactualFrame {
+  index: number;
+  jpeg_b64: string;
 }
 
 export interface CounterfactualResult {
   model?: string;
+  provider?: string;
+  prompt?: string;
   frame_count?: number;
   chunk_complete?: boolean;
+  generation_started?: boolean;
+  reference_image_b64?: string;
+  frame_previews?: CounterfactualFrame[];
+}
+
+export interface HealthInfo {
+  status: string;
+  wam_mode: string;
+  reactor_model: string;
 }
 
 export interface RunResult {
