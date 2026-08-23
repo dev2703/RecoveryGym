@@ -1,0 +1,35 @@
+[project]
+name = "recoverygym"
+version = "0.1.0"
+description = "RecoveryGym — make your robot sweat"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.0",
+    "numpy>=1.26",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+    "httpx>=0.27",
+    "modal>=0.64",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["packages/schemas", "packages/core", "packages/policies"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", "packages"]
+markers = [
+    "unit: unit tests",
+    "feature: feature / integration tests",
+]

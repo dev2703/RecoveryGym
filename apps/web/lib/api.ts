@@ -1,0 +1,47 @@
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+export async function createRun(body: Record<string, unknown>) {
+  const res = await fetch(`${API_URL}/v1/runs`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function createBenchmark(body: Record<string, unknown>) {
+  const res = await fetch(`${API_URL}/v1/benchmarks`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function getBenchmark(id: string) {
+  const res = await fetch(`${API_URL}/v1/benchmarks/${id}`);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function generateDataset(benchmarkId: string) {
+  const res = await fetch(`${API_URL}/v1/datasets/${benchmarkId}/generate`, { method: "POST" });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function startTraining(benchmarkId: string) {
+  const res = await fetch(`${API_URL}/v1/training?benchmark_id=${benchmarkId}`, { method: "POST" });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function runComparison(known = 10, ood = 6) {
+  const res = await fetch(`${API_URL}/v1/experiments/compare?known_episodes=${known}&ood_episodes=${ood}`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
